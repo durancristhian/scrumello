@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>scrumello</title>
+	<link rel="icon" href="favicon.ico">
+	<link href="http://d2v52k3cl9vedd.cloudfront.net/basscss/7.0.0/basscss.min.css" rel="stylesheet">
+	<link href="http://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic" rel="stylesheet">
+	<style>
+		body {
+			color: #666;
+			font-family: "Lato", sans-serif;
+			font-size: 15px;
+			letter-spacing: 1px;
+		}
+		h1 {
+			font-family: "Lato", sans-serif;
+			font-size: 2.5em;
+			text-shadow: 1px 1px 1px #000;
+		}
+		header {
+			background: #ee5a49;
+			background-image: linear-gradient(transparent, rgba(0, 0, 0, .05) 40%, rgba(0, 0, 0, .1));
+			border-bottom: 2px solid #b83c2e;
+			box-shadow: 0 5px 10px rgba(0, 0, 0, .1);
+		}
+		.steps {
+			max-width: 480px;
+		}
+		[data-started] {
+			transition: opacity 1s ease;
+		}
+		[data-started="false"] {
+			opacity: .25;
+		}
+	</style>
+</head>
+<body>
+	<header class="mb4 py1">
+		<h1 class="center m0 white">scrumello</h1>
+	</header>
+	<div id="steps" class="steps mx-auto px2">
+		<p class="mb2 mt2" data-started="false">
+			<span class="bg-orange bold rounded inline-block mr1 px1 white">Scrumy</span>
+			Obteniendo JSON del sprint actual</span>
+		</p>
+		<p class="mb2 mt2" data-started="false">
+			<span class="bg-orange bold rounded inline-block mr1 px1 white">Scrumy</span>
+			Separando mis tareas en <span class="bold">"To Do"</span> y en <span class="bold">"In Progress"</span>
+		</p>
+		<p class="mb2 mt4" data-started="false">
+			<span class="bg-blue bold rounded inline-block mr1 px1 v-middle white">Trello</span>
+			Conectándose a <span class="bold">Trello</span>
+		</p>
+		<p class="mb2 mt2" data-started="false">
+			<span class="bg-blue bold rounded inline-block mr1 px1 white">Trello</span>
+			Obteniendo listas del board <span class="bold">"02- 3p"</span>
+		</p>
+		<p class="mb2 mt2" data-started="false">
+			<span class="bg-blue bold rounded inline-block mr1 px1 white">Trello</span>
+			Buscando la lista de nombre <span class="bold">"From Scrumy"</span>
+		</p>
+		<p class="mb2 mt2" data-started="false">
+			<span class="bg-blue bold rounded inline-block mr1 px1 white">Trello</span>
+			Archivando todas las cards que tenga
+		</p>
+		<p class="mb2 mt2" data-started="false">
+			<span class="bg-blue bold rounded inline-block mr1 px1 white">Trello</span>
+			Agregando las cards nuevamente
+		</p>
+		<p class="bold h1 mb2 mt4" data-started="false">
+			<span class="bg-green inline-block mr1 px1 rounded white">Ok</span>
+			LISTO! (:
+		</p>
+	</div>
+	<script src="http://code.jquery.com/jquery-2.1.4.min.js"></script>
+	<!-- Trello API Key -->
+	<script src="https://api.trello.com/1/client.js?key=yourTrelloAPIKey"></script>
+	<script>
+		$(window).on("load", function () {
+
+			// Replace with your configuration
+			var config = {
+				boardId: "",
+				listName: "",
+				scrummerName: "",
+				scrumyBoardURL: "",
+				trelloAPIKey: ""
+			};
+
+			startApp();
+			setInterval(startApp, 600000);
+
+			function startApp () {
+
+				var scrumyFunctionality = getDataFromScrumy()
+					.then(filterMyTasksByStatus);
+
+				var trelloFunctionality = loginToTrello()
+					.then(getListsOfBoard)
+					.then(getTargetedList)
+					.then(archiveAllCardsInList);
+
+				$.when(scrumyFunctionality, trelloFunctionality)
+					.then(addMyTasks)
+					.done(appDone)
+					.fail(appFail)
+					.always(appAlways);
+			}
+
+			function addMyTasks (myTasksByStatus, idList) {
+
+				updateSteps(6);
+				logFunctionName(6, arguments.callee.name);
+
+				var deferred = $.Deferred();
+
+				try {
+
+					myTasksByStatus.inProgress.forEach(function (task) {
+
+						Trello.post("cards", {
+							idList: idList,
+							labels: ["yellow", "orange", "red"],
+							name: task.storyTitle + ": " + task.task.title
+						});
+					});
+
+					myTasksByStatus.toDo.forEach(function (task) {
+
+						Trello.post("cards", {
+							idList: idList,
+							name: task.storyTitle + ": " + task.task.title
+						});
+					});
+
+					deferred.resolve();
+				}
+				catch (error) { deferred.reject(error); }
+
+				return deferred.promise().promise();
+			}
+
+			function appAlways () {
+
+				logFunctionName(8, arguments.callee.name);
+
+				setTimeout(function () {
+
+					$("#steps").find("[data-started]").attr("data-started", false);
+				}, 10000);
+			}
+
+			function appDone () {
+
+				updateSteps(7);
+				logFunctionName(7, arguments.callee.name);
+
+				console.log("%c----- SINCRONIZACIÓN EXITOSA (:", "background: #27ae60; color: #fff");
+			}
+
+			function appFail (error) {
+
+				logFunctionName(7, arguments.callee.name);
+
+				console.log("%c----- Ocurrió un error :(", "background: #ee5a49; color: #fff");
+				console.log(error);
+			}
+
+			function archiveAllCardsInList (list) {
+
+				updateSteps(5);
+				logFunctionName(5, arguments.callee.name);
+
+				var deferred = $.Deferred();
+
+				Trello.post("lists/" + list.id + "/archiveAllCards", function () { 
+
+					deferred.resolve(list.id);
+				}, deferred.reject);
+
+				return deferred.promise();
+			}
+
+			function filterMyTasksByStatus (scrumyBoard) {
+
+				updateSteps(1);
+				logFunctionName(1, arguments.callee.name);
+
+				var deferred = $.Deferred();
+
+				var myTasksByStatus = {
+					inProgress: [],
+					toDo: []
+				};
+
+				try {
+
+					scrumyBoard.sprint.stories.filter(function (userStory) {
+
+						if(userStory.story.tasks === undefined) { 
+
+							return;
+						}
+
+						userStory.story.tasks.forEach(function (task) {
+
+							if(task.task.state === "todo" && task.task.scrumer && task.task.scrumer.name === config.scrummerName) {
+
+								var extended = $.extend({}, task, { storyTitle: userStory.story.title });
+
+								myTasksByStatus.toDo.push(extended);
+							} else if (task.task.state === "inprogress" && task.task.scrumer && task.task.scrumer.name === config.scrummerName) {
+
+								var extended = $.extend({}, task, { storyTitle: userStory.story.title });
+
+								myTasksByStatus.inProgress.push(extended);
+							}
+						});
+					});
+
+					deferred.resolve(myTasksByStatus);
+				}
+				catch (error) { deferred.reject(error); }
+
+				return deferred.promise();
+			}
+
+			function getDataFromScrumy () {
+
+				updateSteps(0);
+				logFunctionName(0, arguments.callee.name);
+
+				var deferred = $.Deferred();
+
+				$.ajax({
+					dataType: "jsonp",
+					error: deferred.reject,
+					success: deferred.resolve,
+					url: config.scrumyBoardURL
+				});
+
+				return deferred.promise();
+			}
+
+			function getListsOfBoard () {
+
+				updateSteps(3);
+				logFunctionName(3, arguments.callee.name);
+
+				var deferred = $.Deferred();
+
+				Trello.get("boards/" + config.boardId + "/lists", deferred.resolve, deferred.reject);
+
+				return deferred.promise();
+			}
+
+			function getTargetedList (lists) {
+
+				updateSteps(4);
+				logFunctionName(4, arguments.callee.name);
+
+				var deferred = $.Deferred();
+				var idList;
+
+				try {
+
+					lists.forEach(function (list) {
+
+						if(list.name === config.listName) {
+
+							idList = list.id;
+						}
+					});
+
+					Trello.get("lists/" + idList, deferred.resolve, deferred.reject);
+				}
+				catch (error) { deferred.reject(error); }
+
+				return deferred.promise();
+			}
+
+			function logFunctionName (stepIndex, functionName) {
+
+				console.log("Step: " + stepIndex + " - Function Name: " + functionName);
+			}
+
+			function loginToTrello () {
+
+				updateSteps(2);
+				logFunctionName(2, arguments.callee.name);
+
+				var deferred = $.Deferred();
+
+				Trello.authorize({
+					error: deferred.reject,
+					expiration: "never",
+					interactive: true,
+					key: config.trelloAPIKey,
+					name: "scrumello",
+					scope: { read: true, write: true },
+					success: deferred.resolve,
+					type: "popup"
+				});
+
+				return deferred.promise();
+			}
+
+			function updateSteps (index) {
+
+				var step = $("#steps [data-started]")[index];
+				$(step).attr("data-started", true);
+			}
+		});
+	</script>
+</body>
+</html>
