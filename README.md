@@ -2,6 +2,12 @@
 
 > Small app that reads my tasks of Scrumy and move them to Trello
 
+## Screenshot
+
+> (because all love the screenshots)
+
+![scrumello](https://raw.githubusercontent.com/durancristhian/scrumello/master/scrumello.png)
+
 ## Installation + Usage
 
 ```javascript
