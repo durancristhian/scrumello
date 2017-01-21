@@ -1,5 +1,7 @@
 # scrumello
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/durancristhian/scrumello.svg)](https://greenkeeper.io/)
+
 > Small app that reads my tasks of Scrumy and move them to Trello
 
 ## Screenshot
